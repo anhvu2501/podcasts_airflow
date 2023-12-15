@@ -54,7 +54,7 @@ x-airflow-common:
   # build: .
   environment:
     &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     # For backward compatibility, with Airflow <2.3
     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -92,8 +92,10 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
-    volumes:
+    volumes: 
       - postgres-db-volume:/var/lib/postgresql/data
+    # ports:
+    #   - 5432:5432
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -104,7 +106,7 @@ services:
   # redis:
   #   image: redis:latest
   #   expose:
-  #     - 6379
+  #     - 6379 
   #   healthcheck:
   #     test: ["CMD", "redis-cli", "ping"]
   #     interval: 10s

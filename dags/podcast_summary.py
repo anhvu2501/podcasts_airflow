@@ -6,8 +6,14 @@ import pendulum
 import requests
 import xmltodict
 import os
+import json
+
+from google.cloud import speech
 
 EPISODE_FOLDER = "episodes"
+FRAME_RATE = 16000
+
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ""
 
 @dag(
     dag_id='podcast_summary',
@@ -57,20 +63,51 @@ def podcast_summary():
 
         hook.insert_rows(table='episodes', rows=new_episodes, target_fields=['link', 'title', 'published', 'description', 'filename'])
 
-    load_episodes(podcast_episodes)
+    new_episodes = load_episodes(podcast_episodes)
     
     # download episodes to local
     @task()
     def download_episodes(episodes):
-        for episode in episodes:
-            name_end = episode['link'].split('/')[-1]
-            filename = f"{name_end}.mp3"
-            audio_path = os.path.join(EPISODE_FOLDER, filename)
-            if not os.path.exists(audio_path):
-                print(f'Downloading {filename}')
-                audio = requests.get(episode['enclosure']['@url'])
-                with open(audio_path, "wb+") as f:
-                    f.write(audio.content)
+        # for episode in episodes:
+        name_end = episodes[0]['link'].split('/')[-1]
+        filename = f"{name_end}.mp3"
+        audio_path = os.path.join(EPISODE_FOLDER, filename)
+        if not os.path.exists(audio_path):
+            print(f'Downloading {filename}')
+            audio = requests.get(episodes[0]['enclosure']['@url'])
+            with open(audio_path, "wb+") as f:
+                f.write(audio.content)
 
-    download_episodes(podcast_episodes)
+    audio_files = download_episodes(podcast_episodes)
+
+    @task()
+    def speech_to_text(episodes):
+        client = speech.SpeechClient()
+
+        # the name of the audio file to transcribe
+        name_end = episodes[0]['link'].split('/')[-1]
+        filename = f"{name_end}.mp3"
+        audio_path = os.path.join(EPISODE_FOLDER, filename)
+
+        client = speech.SpeechClient()
+
+        with open(audio_path, "rb") as audio_file:
+            content = audio_file.read() 
+
+        audio = speech.RecognitionAudio(content=content)
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.MP3,
+            sample_rate_hertz=16000,
+            language_code="en-US",
+        )
+
+        response = client.recognize(config=config, audio=audio)
+
+        # Each result is for a consecutive portion of the audio. Iterate through
+        # them to get the transcripts for the entire audio file.
+        for result in response.results:
+            # The first alternative is the most likely one for this portion.
+            print(f"Transcript: {result.alternatives[0].transcript}")
+    speech_to_text(podcast_episodes)
+
 summary = podcast_summary()

@@ -4,3 +4,4 @@ Followed by the tutorial of [Dataquest](https://www.youtube.com/watch?v=s-r2gEr7
 - Create Sqlite database
 - Load podcasts to the database
 - Download podcases to local
+- Connect and use Google Cloud Speech to text API
